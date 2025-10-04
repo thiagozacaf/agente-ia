@@ -24,7 +24,7 @@ def setup_selenium_driver():
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     # Aponta para o local padrão do Chromium no ambiente do Streamlit Cloud
-    chrome_options.binary_location = "/usr/bin/chromium-browser"
+    chrome_options.binary_location = "/usr/bin/chromium"
 
     # O Service() vazio encontrará o chromedriver instalado pelo packages.txt
     service = Service()
