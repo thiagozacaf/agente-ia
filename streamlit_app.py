@@ -23,7 +23,10 @@ def setup_selenium_driver():
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
-    # O Streamlit Cloud instala o Chrome a partir do packages.txt, então o driver o encontrará.
+    # Aponta para o local padrão do Chromium no ambiente do Streamlit Cloud
+    chrome_options.binary_location = "/usr/bin/chromium-browser"
+
+    # O Service() vazio encontrará o chromedriver instalado pelo packages.txt
     service = Service()
     driver = webdriver.Chrome(service=service, options=chrome_options)
     return driver
