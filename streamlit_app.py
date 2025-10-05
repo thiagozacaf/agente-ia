@@ -77,8 +77,8 @@ elif st.session_state.etapa == 'processando_docs':
     with col2:
         st.subheader("3. Processando Documentos..."); urls_para_processar = [st.session_state.links_encontrados[i]['link'] for i in st.session_state.urls_escolhidas_indices]; textos_sucesso, relatorio_falhas = [], []
         for url in urls_para_processar: texto, status = processar_url_com_status(url); relatorio_falhas.append(status);
-            if texto:
-                textos_sucesso.append(texto)
+        if texto:
+            textos_sucesso.append(texto)
         if textos_sucesso: st.session_state.dossie = {'municipal': "\n".join(textos_sucesso)}; st.session_state.fontes = {'municipal': ", ".join(urls_para_processar)}; st.session_state.etapa = 'complementando_dossie'; st.rerun()
         else: st.session_state.relatorio_falhas = relatorio_falhas; st.session_state.etapa = 'fallback_manual'; st.rerun()
 elif st.session_state.etapa == 'fallback_manual':
