@@ -1,4 +1,4 @@
-# --- VERSÃO 9.3 - AJUSTE FINO DE TEMPO DA API ---
+# --- VERSÃO 10.0 - FLUXO MULTI-NÍVEL CORRIGIDO ---
 import streamlit as st
 import os
 import google.generativeai as genai
@@ -14,7 +14,7 @@ from selenium.webdriver.chrome.options import Options
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(layout="wide", page_title="Agente de Análise Jurídica")
-st.title("🤖 Agente de Viabilidade de Projetos v9.3")
+st.title("🤖 Agente de Viabilidade de Projetos v10.0")
 
 # --- CAIXA DE FERRAMENTAS DO AGENTE ---
 @st.cache_resource
@@ -80,7 +80,7 @@ if st.session_state.etapa == 'selecionando_leis':
     with col1:
         st.subheader("2. Supervisão Humana (Nível Municipal)"); opcoes = {f"[{i+1}] {item['title']}": item['link'] for i, item in enumerate(st.session_state.links_encontrados)}
         links_escolhidos_key = st.multiselect("Selecione a(s) fonte(s) municipal(is):", options=opcoes.keys())
-        if st.button("✅ Analisar Fontes", disabled=(st.session_state.etapa != 'selecionando_leis')):
+        if st.button("✅ Processar Fontes e Continuar", disabled=(st.session_state.etapa != 'selecionando_leis')):
             if links_escolhidos_key:
                 st.session_state.urls_escolhidas_keys = links_escolhidos_key; st.session_state.etapa = 'processando_municipal'; st.rerun()
 
@@ -108,46 +108,38 @@ if st.session_state.etapa == 'complementando_dossie':
         st.subheader("3. Processando Dossiê..."); servico_busca = build("customsearch", "v1", developerKey=st.session_state.search_key); cidade, estado = [x.strip().upper() for x in st.session_state.cidade_input.split('-')]
         dossie = st.session_state.dossie; fontes = st.session_state.fontes
         with st.spinner(f"Buscando a Constituição do Estado de {estado} e a Constituição Federal..."):
-            
-            time.sleep(1) # Pausa de 1 segundo antes da próxima busca
-            url_ce = pesquisar_documento(servico_busca, st.session_state.search_id, f'constituição do estado de {estado}'); 
+            time.sleep(1); url_ce = pesquisar_documento(servico_busca, st.session_state.search_id, f'constituição do estado de {estado}'); 
             if url_ce: dossie['estadual'] = processar_url(url_ce); fontes['estadual'] = url_ce
-            
-            time.sleep(1) # Pausa de 1 segundo antes da próxima busca
-            url_cf = pesquisar_documento(servico_busca, st.session_state.search_id, 'Constituição Federal do Brasil 1988 planalto'); 
+            time.sleep(1); url_cf = pesquisar_documento(servico_busca, st.session_state.search_id, 'Constituição Federal do Brasil 1988 planalto'); 
             if url_cf: dossie['federal'] = processar_url(url_cf); fontes['federal'] = url_cf
-        
         st.session_state.contexto = f"--- DOC FEDERAL ---\n{dossie.get('federal', 'Não encontrado.')}\n--- DOC ESTADUAL ---\n{dossie.get('estadual', 'Não encontrado.')}\n--- DOC MUNICIPAL ---\n{dossie.get('municipal', 'Não encontrado.')}"
         st.session_state.fontes = fontes; st.session_state.etapa = 'concluindo_analise'; st.rerun()
 
 if st.session_state.etapa == 'concluindo_analise':
     with col2:
         st.subheader("Análise Jurídica Consolidada")
-        with st.spinner("🧠 Consultor Sênior analisando o dossiê..."):
+        with st.spinner("🧠 Analista de viabilidade processando o dossiê..."):
             genai.configure(api_key=st.session_state.gemini_key); modelo_ia = genai.GenerativeModel('gemini-2.5-pro')
             prompt = f"""
-            Você é um bacharel de direito e atua como analista de viabilidade de projetos.
+            **PERSONA:** Você é um bacharel em direito e atua como analista de viabilidade de projetos.
             **REGRA MAIS IMPORTANTE:** Sua análise deve se basear **EXCLUSIVAMENTE** nos documentos do dossiê. Se um documento for 'Não encontrado', você é **PROIBIDO** de usar conhecimento externo para preencher a lacuna. Você deve afirmar explicitamente que a informação para aquela esfera não foi encontrada.
-
-            REGRAS ADICIONAIS:
-            1. Sua resposta deve ter DUAS SEÇÕES: "1. Análise Jurídica Direta" (o que está nos documentos) e "2. Sugestões Estratégicas" (ideias baseadas na análise, deixando claro que são sugestões).
-            2. Seja direto e prático, sem saudações ou despedidas.
-            3. Cite artigos e fontes (Federal, Estadual, Municipal) para cada ponto na Seção 1.
-
+            **REGRAS DE FORMATAÇÃO E ESTILO:**
+            1.  **NÃO USE FORMALIDADES:** Comece a resposta diretamente. Sem saudações, pareceres, ementas ou despedidas.
+            2.  **ESTRUTURA OBRIGATÓRIA:** A resposta deve ter DUAS SEÇÕES, com estes títulos exatos: "### 1. Análise Jurídica Direta" e "### 2. Sugestões Estratégicas".
+            3.  **SEÇÃO 1 (Análise Jurídica Direta):** Resuma apenas os fatos e competências que estão escritos nos documentos. Para cada ponto, cite a fonte entre parênteses. (ex: Art. 30 da CF/88).
+            4.  **SEÇÃO 2 (Sugestões Estratégicas):** Com base estritamente na análise da Seção 1, sugira ações e projetos práticos para o município. Deixe claro que são sugestões baseadas na legislação encontrada.
             **Dossiê de Documentos Fornecido:**
             {st.session_state.contexto}
-
-            **Pergunta:**
+            **Pergunta do Usuário:**
             {st.session_state.pergunta}
-
-            **Análise:**
+            **ANÁLISE DE VIABILIDADE:**
             """
             st.session_state.analise_final = modelo_ia.generate_content(prompt).text
         st.session_state.etapa = 'exibir_resultado'; st.rerun()
 
 if st.session_state.etapa == 'exibir_resultado':
     with col2:
-        st.subheader("Análise Jurídica Consolidada"); st.info("Dica: Clique na caixa abaixo, pressione Ctrl+A para selecionar tudo e Ctrl+C para copiar.")
+        st.subheader("Análise Jurídica Consolidada"); st.info("💡 Dica: Clique na caixa abaixo, pressione Ctrl+A para selecionar tudo e Ctrl+C para copiar.")
         st.text_area("Resultado:", st.session_state.analise_final, height=400)
         with st.expander("Fontes Utilizadas na Análise"):
             st.write(f"**Federal:** {st.session_state.fontes.get('federal', 'N/A')}"); st.write(f"**Estadual:** {st.session_state.fontes.get('estadual', 'N/A')}"); st.write(f"**Municipal:** {st.session_state.fontes.get('municipal', 'N/A')}")
